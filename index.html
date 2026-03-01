@@ -1,0 +1,904 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>房仲 AI 自動回覆模擬器</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #00D4FF;
+      --primary-dark: #00a8cc;
+      --bg-dark: #0A1628;
+      --accent: #FF6B35;
+      --bg-light: #f5f7fa;
+      --card-bg: #ffffff;
+      --text-dark: #1a1a2e;
+      --text-gray: #6b7280;
+      --border: #e5e7eb;
+      --success: #10b981;
+      --error: #ef4444;
+      --shadow: 0 1px 3px rgba(0,0,0,0.1);
+      --shadow-lg: 0 10px 25px rgba(0,0,0,0.1);
+      /* Chat colors */
+      --chat-bg: #e5e1d8;
+      --bubble-other: #ffffff;
+      --bubble-self: #dcf8c6;
+      --line-green: #06C755;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Inter', 'Noto Sans TC', sans-serif;
+      background: var(--bg-light);
+      color: var(--text-dark);
+      line-height: 1.6;
+    }
+
+    /* Header */
+    header {
+      background: var(--bg-dark);
+      color: white;
+      padding: 1.5rem;
+      text-align: center;
+    }
+    header h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 0.25rem; }
+    header h1 span { color: var(--primary); }
+    header p { color: #94a3b8; font-size: 0.85rem; }
+
+    /* Layout */
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 1.5rem;
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      gap: 1.25rem;
+    }
+
+    /* Sidebar */
+    .sidebar { display: flex; flex-direction: column; gap: 1rem; }
+    .card {
+      background: var(--card-bg);
+      border-radius: 12px;
+      padding: 1.25rem;
+      box-shadow: var(--shadow);
+    }
+    .card-title {
+      font-size: 0.95rem; font-weight: 600;
+      margin-bottom: 0.75rem;
+      display: flex; align-items: center; gap: 0.4rem;
+    }
+    .card-title .badge {
+      font-size: 0.65rem; padding: 0.15rem 0.5rem;
+      border-radius: 10px; font-weight: 500;
+    }
+    .badge-green { background: #d1fae5; color: #065f46; }
+    .badge-blue { background: #dbeafe; color: #1e40af; }
+
+    /* Form */
+    .form-group { margin-bottom: 0.6rem; }
+    .form-group label {
+      display: block; font-size: 0.75rem; font-weight: 500;
+      color: var(--text-gray); margin-bottom: 0.2rem;
+    }
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+      width: 100%; padding: 0.5rem 0.6rem;
+      border: 1px solid var(--border); border-radius: 8px;
+      font-size: 0.82rem; font-family: inherit;
+    }
+    .form-group input:focus,
+    .form-group textarea:focus {
+      outline: none; border-color: var(--primary);
+      box-shadow: 0 0 0 2px rgba(0,212,255,0.1);
+    }
+    .form-group textarea { resize: vertical; min-height: 55px; }
+    .form-row-2 {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;
+    }
+
+    /* Property cards in sidebar */
+    .property-list { display: flex; flex-direction: column; gap: 0.5rem; }
+    .property-item {
+      padding: 0.6rem; border: 1px solid var(--border);
+      border-radius: 8px; font-size: 0.8rem;
+      display: flex; justify-content: space-between; align-items: center;
+      cursor: pointer; transition: all 0.2s;
+    }
+    .property-item:hover { border-color: var(--primary); }
+    .property-item.active {
+      border-color: var(--primary); background: rgba(0,212,255,0.05);
+    }
+    .property-item .p-name { font-weight: 600; }
+    .property-item .p-price { color: var(--accent); font-weight: 600; font-size: 0.75rem; }
+    .property-item .p-status {
+      font-size: 0.65rem; padding: 0.1rem 0.4rem;
+      border-radius: 4px;
+    }
+    .status-active { background: #d1fae5; color: #065f46; }
+    .status-sold { background: #fee2e2; color: #991b1b; }
+    .btn-sm {
+      padding: 0.3rem 0.6rem; border-radius: 6px;
+      font-size: 0.72rem; cursor: pointer; font-family: inherit;
+      border: 1px solid var(--border); background: white;
+      transition: all 0.2s;
+    }
+    .btn-sm:hover { border-color: var(--primary); color: var(--primary); }
+    .btn-sm.danger:hover { border-color: var(--error); color: var(--error); }
+
+    /* Buttons */
+    .btn-primary {
+      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+      color: var(--bg-dark); border: none;
+      padding: 0.55rem 1.25rem; border-radius: 8px;
+      font-size: 0.85rem; font-weight: 700;
+      cursor: pointer; font-family: inherit;
+      transition: all 0.2s; width: 100%;
+    }
+    .btn-primary:hover { transform: translateY(-1px); box-shadow: var(--shadow-lg); }
+    .btn-secondary {
+      background: transparent; color: var(--text-gray);
+      border: 1px solid var(--border);
+      padding: 0.45rem 0.8rem; border-radius: 6px;
+      font-size: 0.78rem; cursor: pointer; font-family: inherit;
+    }
+    .btn-secondary:hover { border-color: var(--primary); color: var(--primary); }
+
+    /* Chat area */
+    .chat-wrapper {
+      display: flex; flex-direction: column;
+      height: calc(100vh - 140px);
+      min-height: 500px;
+    }
+
+    /* Chat header (LINE style) */
+    .chat-header {
+      background: var(--line-green);
+      color: white;
+      padding: 0.75rem 1rem;
+      border-radius: 12px 12px 0 0;
+      display: flex; align-items: center; gap: 0.75rem;
+    }
+    .chat-avatar {
+      width: 40px; height: 40px;
+      border-radius: 50%; background: white;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.2rem;
+    }
+    .chat-header-info h3 { font-size: 0.95rem; font-weight: 600; }
+    .chat-header-info p { font-size: 0.7rem; opacity: 0.85; }
+    .chat-header-right {
+      margin-left: auto;
+      display: flex; gap: 0.5rem;
+    }
+    .platform-tab {
+      padding: 0.3rem 0.7rem; border-radius: 15px;
+      font-size: 0.7rem; cursor: pointer;
+      background: rgba(255,255,255,0.2); color: white;
+      border: 1px solid rgba(255,255,255,0.3);
+      font-family: inherit; transition: all 0.2s;
+    }
+    .platform-tab.active {
+      background: white; color: var(--line-green); font-weight: 600;
+    }
+
+    /* Chat body */
+    .chat-body {
+      flex: 1;
+      background: var(--chat-bg);
+      padding: 1rem;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    .chat-date {
+      text-align: center;
+      font-size: 0.7rem;
+      color: #8b8b8b;
+      background: rgba(0,0,0,0.08);
+      padding: 0.2rem 0.75rem;
+      border-radius: 10px;
+      align-self: center;
+      margin: 0.5rem 0;
+    }
+    .msg {
+      display: flex; gap: 0.5rem;
+      max-width: 80%;
+      animation: msgIn 0.25s ease;
+    }
+    @keyframes msgIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .msg.customer { align-self: flex-start; }
+    .msg.agent { align-self: flex-end; flex-direction: row-reverse; }
+    .msg-avatar {
+      width: 32px; height: 32px; border-radius: 50%;
+      background: #ccc; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.85rem;
+    }
+    .msg.agent .msg-avatar { background: var(--line-green); color: white; }
+    .msg-content {}
+    .msg-bubble {
+      padding: 0.6rem 0.85rem;
+      border-radius: 12px;
+      font-size: 0.85rem;
+      line-height: 1.6;
+      word-break: break-word;
+      white-space: pre-wrap;
+    }
+    .msg.customer .msg-bubble {
+      background: var(--bubble-other);
+      border-top-left-radius: 4px;
+    }
+    .msg.agent .msg-bubble {
+      background: var(--bubble-self);
+      border-top-right-radius: 4px;
+    }
+    .msg-time {
+      font-size: 0.6rem; color: #8b8b8b;
+      margin-top: 0.15rem;
+    }
+    .msg.customer .msg-time { text-align: left; }
+    .msg.agent .msg-time { text-align: right; }
+    .msg-label {
+      font-size: 0.6rem; color: var(--line-green);
+      font-weight: 600; margin-bottom: 0.15rem;
+    }
+
+    /* Typing indicator */
+    .typing-indicator {
+      display: flex; gap: 0.5rem; align-self: flex-end;
+      max-width: 80%; flex-direction: row-reverse;
+    }
+    .typing-dots {
+      background: var(--bubble-self);
+      padding: 0.6rem 1rem;
+      border-radius: 12px;
+      display: flex; gap: 0.3rem; align-items: center;
+    }
+    .typing-dots span {
+      width: 7px; height: 7px; background: #999;
+      border-radius: 50%;
+      animation: typing 1.2s infinite;
+    }
+    .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+    .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes typing {
+      0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+      30% { transform: translateY(-4px); opacity: 1; }
+    }
+
+    /* Chat input */
+    .chat-input {
+      display: flex; gap: 0.5rem;
+      padding: 0.75rem 1rem;
+      background: white;
+      border-radius: 0 0 12px 12px;
+      border-top: 1px solid var(--border);
+    }
+    .chat-input input {
+      flex: 1; padding: 0.6rem 0.85rem;
+      border: 1px solid var(--border); border-radius: 20px;
+      font-size: 0.85rem; font-family: inherit;
+    }
+    .chat-input input:focus {
+      outline: none; border-color: var(--line-green);
+    }
+    .chat-input button {
+      background: var(--line-green); color: white;
+      border: none; border-radius: 50%;
+      width: 38px; height: 38px;
+      cursor: pointer; font-size: 1rem;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.2s;
+    }
+    .chat-input button:hover { background: #05a948; }
+
+    /* Quick replies */
+    .quick-replies {
+      display: flex; flex-wrap: wrap; gap: 0.4rem;
+      padding: 0.5rem 1rem;
+      background: white;
+      border-top: 1px solid var(--border);
+    }
+    .quick-reply {
+      padding: 0.35rem 0.75rem;
+      border: 1px solid var(--line-green);
+      border-radius: 15px;
+      font-size: 0.75rem;
+      color: var(--line-green);
+      cursor: pointer;
+      font-family: inherit;
+      background: white;
+      transition: all 0.2s;
+    }
+    .quick-reply:hover {
+      background: var(--line-green); color: white;
+    }
+
+    /* Notification badge */
+    .notif-card {
+      background: #fef3c7; border: 1px solid #fcd34d;
+      border-radius: 8px; padding: 0.6rem 0.8rem;
+      font-size: 0.78rem; display: none;
+      animation: fadeIn 0.3s ease;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .notif-card .notif-title {
+      font-weight: 600; color: #92400e;
+      margin-bottom: 0.2rem;
+    }
+    .notif-card .notif-body { color: #78350f; }
+
+    /* Toast */
+    .toast {
+      position: fixed; bottom: 2rem; left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: var(--bg-dark); color: white;
+      padding: 0.75rem 1.5rem; border-radius: 10px;
+      font-size: 0.85rem; z-index: 1000;
+      transition: transform 0.3s ease; box-shadow: var(--shadow-lg);
+    }
+    .toast.show { transform: translateX(-50%) translateY(0); }
+
+    /* Footer */
+    footer {
+      text-align: center; padding: 1.5rem;
+      color: #9ca3af; font-size: 0.8rem;
+    }
+    footer a { color: var(--primary); text-decoration: none; }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .container {
+        grid-template-columns: 1fr;
+        padding: 1rem;
+      }
+      .chat-wrapper {
+        height: 70vh;
+        min-height: 400px;
+      }
+      header h1 { font-size: 1.25rem; }
+    }
+
+    /* Collapsible sections on mobile */
+    .collapse-toggle {
+      display: none;
+      width: 100%; padding: 0.5rem;
+      background: none; border: 1px solid var(--border);
+      border-radius: 8px; cursor: pointer;
+      font-family: inherit; font-size: 0.82rem;
+      color: var(--text-gray); margin-bottom: 0.5rem;
+    }
+    @media (max-width: 768px) {
+      .collapse-toggle { display: block; }
+      .sidebar-content.collapsed { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>💬 房仲 <span>AI 自動回覆</span>模擬器</h1>
+  <p>設定物件資料，模擬客戶私訊時的 AI 智能回覆體驗</p>
+</header>
+
+<div class="container">
+  <!-- Sidebar: Property & Agent Config -->
+  <div class="sidebar">
+    <button class="collapse-toggle" onclick="toggleSidebar()">展開/收合設定面板</button>
+    <div class="sidebar-content" id="sidebarContent">
+
+      <!-- Agent Info -->
+      <div class="card">
+        <div class="card-title">👤 經紀人資訊</div>
+        <div class="form-row-2">
+          <div class="form-group">
+            <label>姓名</label>
+            <input type="text" id="agentName" placeholder="王志偉" />
+          </div>
+          <div class="form-group">
+            <label>電話</label>
+            <input type="tel" id="agentPhone" placeholder="0912-345-678" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label>公司</label>
+          <input type="text" id="agentCompany" placeholder="信義房屋 信義店" />
+        </div>
+      </div>
+
+      <!-- Property List -->
+      <div class="card">
+        <div class="card-title">
+          🏠 物件資料庫
+          <span class="badge badge-green" id="propCount">2 筆</span>
+        </div>
+        <div class="property-list" id="propertyList"></div>
+        <div style="margin-top:0.5rem; display:flex; gap:0.4rem;">
+          <button class="btn-secondary" onclick="showAddProperty()" style="flex:1;">+ 新增物件</button>
+          <button class="btn-secondary" onclick="loadSampleData()">載入範例</button>
+        </div>
+      </div>
+
+      <!-- Add/Edit Property Form (hidden by default) -->
+      <div class="card" id="propFormCard" style="display:none;">
+        <div class="card-title">📝 物件資料</div>
+        <div class="form-group">
+          <label>物件名稱</label>
+          <input type="text" id="pName" placeholder="信義區景觀兩房" />
+        </div>
+        <div class="form-row-2">
+          <div class="form-group">
+            <label>售/租</label>
+            <select id="pDeal"><option value="售">售屋</option><option value="租">租屋</option></select>
+          </div>
+          <div class="form-group">
+            <label>價格</label>
+            <input type="text" id="pPrice" placeholder="1580萬" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label>地址</label>
+          <input type="text" id="pAddr" placeholder="台北市信義區松仁路88號" />
+        </div>
+        <div class="form-row-2">
+          <div class="form-group">
+            <label>坪數</label>
+            <input type="text" id="pSize" placeholder="28坪" />
+          </div>
+          <div class="form-group">
+            <label>格局</label>
+            <input type="text" id="pLayout" placeholder="2房1廳1衛" />
+          </div>
+        </div>
+        <div class="form-row-2">
+          <div class="form-group">
+            <label>樓層</label>
+            <input type="text" id="pFloor" placeholder="12F/24F" />
+          </div>
+          <div class="form-group">
+            <label>屋齡</label>
+            <input type="text" id="pAge" placeholder="8年" />
+          </div>
+        </div>
+        <div class="form-row-2">
+          <div class="form-group">
+            <label>管理費</label>
+            <input type="text" id="pMgmt" placeholder="3500元/月" />
+          </div>
+          <div class="form-group">
+            <label>車位</label>
+            <input type="text" id="pParking" placeholder="坡道平面" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label>賣點 / 特色</label>
+          <textarea id="pFeatures" placeholder="近捷運象山站步行5分鐘、101景觀、全新裝潢、社區管理佳"></textarea>
+        </div>
+        <div class="form-group">
+          <label>狀態</label>
+          <select id="pStatus">
+            <option value="active">銷售中</option>
+            <option value="sold">已售出</option>
+          </select>
+        </div>
+        <div style="display:flex; gap:0.4rem; margin-top:0.5rem;">
+          <button class="btn-primary" onclick="saveProperty()" style="flex:1;">儲存物件</button>
+          <button class="btn-secondary" onclick="cancelProperty()">取消</button>
+        </div>
+      </div>
+
+      <!-- Notification -->
+      <div class="notif-card" id="notifCard">
+        <div class="notif-title">📱 經紀人通知</div>
+        <div class="notif-body" id="notifBody"></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Chat Area -->
+  <div class="chat-wrapper">
+    <div class="chat-header">
+      <div class="chat-avatar">🏠</div>
+      <div class="chat-header-info">
+        <h3 id="chatAgentName">AI 房屋助理</h3>
+        <p>自動回覆模擬中</p>
+      </div>
+      <div class="chat-header-right">
+        <button class="platform-tab active" data-platform="line">LINE</button>
+        <button class="platform-tab" data-platform="fb">FB</button>
+        <button class="platform-tab" data-platform="ig">IG</button>
+      </div>
+    </div>
+
+    <div class="chat-body" id="chatBody">
+      <div class="chat-date">今天</div>
+    </div>
+
+    <div class="quick-replies" id="quickReplies">
+      <button class="quick-reply" onclick="sendQuick('這間還有嗎？')">這間還有嗎？</button>
+      <button class="quick-reply" onclick="sendQuick('多少錢？')">多少錢？</button>
+      <button class="quick-reply" onclick="sendQuick('可以約看嗎？')">可以約看嗎？</button>
+      <button class="quick-reply" onclick="sendQuick('幾坪？格局？')">幾坪？格局？</button>
+      <button class="quick-reply" onclick="sendQuick('附近有什麼學校？')">附近學區？</button>
+      <button class="quick-reply" onclick="sendQuick('有車位嗎？')">有車位嗎？</button>
+      <button class="quick-reply" onclick="sendQuick('管理費多少？')">管理費？</button>
+      <button class="quick-reply" onclick="sendQuick('可以貸幾成？')">可以貸幾成？</button>
+    </div>
+
+    <div class="chat-input">
+      <input type="text" id="chatInput" placeholder="輸入訊息..." onkeydown="if(event.key==='Enter')sendMsg()" />
+      <button onclick="sendMsg()">➤</button>
+    </div>
+  </div>
+</div>
+
+<footer>
+  Powered by Gemini AI ｜ Built by <a href="https://www.autolab.cloud" target="_blank">AutoLab 阿峰老師</a>
+</footer>
+
+<div class="toast" id="toast"></div>
+
+<input type="hidden" id="apiKey" value="AIzaSyBosBG4s5cYEYQm-7gGEH-oClQQ5tr0WPU" />
+
+<script>
+// ===== 資料 =====
+let properties = [];
+let editingIndex = -1;
+let currentPlatform = 'line';
+let conversationHistory = [];
+
+// ===== 範例資料 =====
+const sampleProperties = [
+  {
+    name: '信義區全新裝潢景觀兩房',
+    deal: '售', price: '1,580萬',
+    addr: '台北市信義區松仁路88號',
+    size: '28坪', layout: '2房1廳1衛',
+    floor: '12F/24F', age: '8年',
+    mgmt: '3,500元/月', parking: '坡道平面',
+    features: '近捷運象山站步行5分鐘、客廳落地窗可看101夜景、全新裝潢含全新廚具家電、社區管理佳有中庭花園、低公設比28%',
+    status: 'active'
+  },
+  {
+    name: '大安區溫馨三房',
+    deal: '售', price: '2,380萬',
+    addr: '台北市大安區復興南路二段',
+    size: '38坪', layout: '3房2廳2衛',
+    floor: '8F/15F', age: '12年',
+    mgmt: '4,200元/月', parking: '機械式',
+    features: '近捷運大安站步行3分鐘、鄰近大安森林公園、明星學區（金華國小）、邊間採光三面、前後陽台',
+    status: 'active'
+  },
+  {
+    name: '中山區精美套房',
+    deal: '租', price: '18,000元/月',
+    addr: '台北市中山區南京東路二段',
+    size: '12坪', layout: '1房1衛',
+    floor: '6F/10F', age: '15年',
+    mgmt: '含在租金內', parking: '無',
+    features: '近捷運松江南京站步行2分鐘、全新裝潢、附冷氣洗衣機冰箱、管理員24小時、適合上班族',
+    status: 'active'
+  }
+];
+
+const sampleAgent = {
+  name: '王志偉',
+  phone: '0912-345-678',
+  company: '信義房屋 信義店'
+};
+
+// ===== 初始化 =====
+window.addEventListener('DOMContentLoaded', () => {
+  loadSampleData();
+  document.querySelectorAll('.platform-tab').forEach(tab => {
+    tab.addEventListener('click', () => switchPlatform(tab.dataset.platform));
+  });
+});
+
+// ===== 載入範例 =====
+function loadSampleData() {
+  properties = JSON.parse(JSON.stringify(sampleProperties));
+  document.getElementById('agentName').value = sampleAgent.name;
+  document.getElementById('agentPhone').value = sampleAgent.phone;
+  document.getElementById('agentCompany').value = sampleAgent.company;
+  updateChatHeader();
+  renderPropertyList();
+  showToast('已載入範例資料（3 筆物件）');
+}
+
+// ===== 物件列表 =====
+function renderPropertyList() {
+  const list = document.getElementById('propertyList');
+  document.getElementById('propCount').textContent = properties.length + ' 筆';
+  list.innerHTML = properties.map((p, i) => `
+    <div class="property-item ${i === 0 ? 'active' : ''}" onclick="selectProperty(${i})">
+      <div>
+        <div class="p-name">${p.name}</div>
+        <div class="p-price">${p.price}</div>
+      </div>
+      <div style="display:flex;gap:0.3rem;align-items:center;">
+        <span class="p-status ${p.status === 'active' ? 'status-active' : 'status-sold'}">
+          ${p.status === 'active' ? '銷售中' : '已售出'}
+        </span>
+        <button class="btn-sm" onclick="event.stopPropagation();editProperty(${i})">編輯</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function selectProperty(i) {
+  document.querySelectorAll('.property-item').forEach((el, idx) => {
+    el.classList.toggle('active', idx === i);
+  });
+}
+
+// ===== 新增/編輯物件 =====
+function showAddProperty() {
+  editingIndex = -1;
+  clearPropForm();
+  document.getElementById('propFormCard').style.display = 'block';
+}
+
+function editProperty(i) {
+  editingIndex = i;
+  const p = properties[i];
+  document.getElementById('pName').value = p.name;
+  document.getElementById('pDeal').value = p.deal;
+  document.getElementById('pPrice').value = p.price;
+  document.getElementById('pAddr').value = p.addr;
+  document.getElementById('pSize').value = p.size;
+  document.getElementById('pLayout').value = p.layout;
+  document.getElementById('pFloor').value = p.floor;
+  document.getElementById('pAge').value = p.age;
+  document.getElementById('pMgmt').value = p.mgmt;
+  document.getElementById('pParking').value = p.parking;
+  document.getElementById('pFeatures').value = p.features;
+  document.getElementById('pStatus').value = p.status;
+  document.getElementById('propFormCard').style.display = 'block';
+}
+
+function saveProperty() {
+  const p = {
+    name: document.getElementById('pName').value.trim() || '未命名物件',
+    deal: document.getElementById('pDeal').value,
+    price: document.getElementById('pPrice').value.trim(),
+    addr: document.getElementById('pAddr').value.trim(),
+    size: document.getElementById('pSize').value.trim(),
+    layout: document.getElementById('pLayout').value.trim(),
+    floor: document.getElementById('pFloor').value.trim(),
+    age: document.getElementById('pAge').value.trim(),
+    mgmt: document.getElementById('pMgmt').value.trim(),
+    parking: document.getElementById('pParking').value.trim(),
+    features: document.getElementById('pFeatures').value.trim(),
+    status: document.getElementById('pStatus').value
+  };
+  if (editingIndex >= 0) {
+    properties[editingIndex] = p;
+  } else {
+    properties.push(p);
+  }
+  renderPropertyList();
+  cancelProperty();
+  showToast(editingIndex >= 0 ? '物件已更新' : '物件已新增');
+}
+
+function cancelProperty() {
+  document.getElementById('propFormCard').style.display = 'none';
+  clearPropForm();
+  editingIndex = -1;
+}
+
+function clearPropForm() {
+  ['pName','pPrice','pAddr','pSize','pLayout','pFloor','pAge','pMgmt','pParking','pFeatures'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('pDeal').value = '售';
+  document.getElementById('pStatus').value = 'active';
+}
+
+// ===== 平台切換 =====
+function switchPlatform(platform) {
+  currentPlatform = platform;
+  document.querySelectorAll('.platform-tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.platform === platform);
+  });
+  const colors = { line: '#06C755', fb: '#1877F2', ig: '#E4405F' };
+  document.querySelector('.chat-header').style.background = colors[platform];
+  const names = { line: 'LINE', fb: 'Facebook Messenger', ig: 'Instagram DM' };
+  document.querySelector('.chat-header-info p').textContent = `${names[platform]} 自動回覆模擬中`;
+}
+
+function updateChatHeader() {
+  const name = document.getElementById('agentName').value.trim();
+  const company = document.getElementById('agentCompany').value.trim();
+  document.getElementById('chatAgentName').textContent =
+    (company ? company + ' ' : '') + (name || 'AI 房屋助理');
+}
+
+document.getElementById('agentName').addEventListener('input', updateChatHeader);
+document.getElementById('agentCompany').addEventListener('input', updateChatHeader);
+
+// ===== Chat =====
+function now() {
+  const d = new Date();
+  return d.getHours().toString().padStart(2,'0') + ':' + d.getMinutes().toString().padStart(2,'0');
+}
+
+function addMessage(text, role) {
+  const chatBody = document.getElementById('chatBody');
+  const avatar = role === 'customer' ? '👤' : '🏠';
+  const label = role === 'agent' ? '<div class="msg-label">AI 自動回覆</div>' : '';
+  const html = `
+    <div class="msg ${role}">
+      <div class="msg-avatar">${avatar}</div>
+      <div class="msg-content">
+        ${label}
+        <div class="msg-bubble">${escapeHtml(text)}</div>
+        <div class="msg-time">${now()}</div>
+      </div>
+    </div>
+  `;
+  chatBody.insertAdjacentHTML('beforeend', html);
+  chatBody.scrollTop = chatBody.scrollHeight;
+}
+
+function showTyping() {
+  const chatBody = document.getElementById('chatBody');
+  const html = `
+    <div class="typing-indicator" id="typingIndicator">
+      <div class="msg-avatar" style="background:var(--line-green);color:white;">🏠</div>
+      <div class="typing-dots"><span></span><span></span><span></span></div>
+    </div>
+  `;
+  chatBody.insertAdjacentHTML('beforeend', html);
+  chatBody.scrollTop = chatBody.scrollHeight;
+}
+
+function removeTyping() {
+  const el = document.getElementById('typingIndicator');
+  if (el) el.remove();
+}
+
+// ===== 發送訊息 =====
+function sendMsg() {
+  const input = document.getElementById('chatInput');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  sendCustomerMessage(text);
+}
+
+function sendQuick(text) {
+  sendCustomerMessage(text);
+}
+
+async function sendCustomerMessage(text) {
+  addMessage(text, 'customer');
+  conversationHistory.push({ role: 'customer', text });
+
+  showTyping();
+
+  // 顯示通知
+  showNotification(text);
+
+  try {
+    const reply = await generateReply(text);
+    removeTyping();
+    addMessage(reply, 'agent');
+    conversationHistory.push({ role: 'agent', text: reply });
+  } catch (err) {
+    removeTyping();
+    addMessage('抱歉，系統暫時無法回覆，我們的經紀人會盡快與您聯繫！', 'agent');
+  }
+}
+
+// ===== 經紀人通知 =====
+function showNotification(customerMsg) {
+  const card = document.getElementById('notifCard');
+  const body = document.getElementById('notifBody');
+  const platforms = { line: 'LINE', fb: 'FB Messenger', ig: 'IG DM' };
+  body.textContent = `${platforms[currentPlatform]} 新訊息：「${customerMsg}」— 已自動回覆，建議稍後親自跟進。`;
+  card.style.display = 'block';
+  setTimeout(() => { card.style.display = 'none'; }, 8000);
+}
+
+// ===== AI 回覆 =====
+async function generateReply(customerMsg) {
+  const apiKey = document.getElementById('apiKey').value;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+  const agentName = document.getElementById('agentName').value.trim() || '專員';
+  const agentPhone = document.getElementById('agentPhone').value.trim();
+  const agentCompany = document.getElementById('agentCompany').value.trim();
+
+  // 組裝物件資料
+  const propData = properties.map(p => {
+    const statusText = p.status === 'sold' ? '【已售出】' : '【銷售中】';
+    return `${statusText} ${p.name}
+交易：${p.deal}屋 | 價格：${p.price}
+地址：${p.addr}
+坪數：${p.size} | 格局：${p.layout}
+樓層：${p.floor} | 屋齡：${p.age}
+管理費：${p.mgmt} | 車位：${p.parking}
+特色：${p.features}`;
+  }).join('\n\n');
+
+  // 對話歷史（最近5輪）
+  const recentHistory = conversationHistory.slice(-10).map(m =>
+    `${m.role === 'customer' ? '客戶' : '助理'}：${m.text}`
+  ).join('\n');
+
+  const platformNames = { line: 'LINE', fb: 'Facebook Messenger', ig: 'Instagram DM' };
+
+  const prompt = `你是一位台灣房仲的 AI 助理，在 ${platformNames[currentPlatform]} 上自動回覆客戶私訊。
+
+## 你的身份
+經紀人：${agentName}
+公司：${agentCompany}
+電話：${agentPhone}
+
+## 物件資料庫
+${propData}
+
+## 回覆規則
+1. 用繁體中文、台灣口語，語氣親切專業，像真人助理在回覆
+2. 根據客戶問題，從物件資料庫中找到對應資訊回答
+3. 如果客戶問的物件已售出，告知已售出並推薦其他類似物件
+4. 如果客戶想約看屋，提供時段選項並詢問聯絡方式
+5. 不要透露底價或議價空間，只說開價
+6. 回覆保持簡短（50-150字），像真人打字，不要太長
+7. 適當使用 emoji 但不過度
+8. 如果問題涉及貸款、法律等專業問題，建議客戶與經紀人直接聯繫
+9. 結尾適時提到經紀人名字，讓客戶知道有真人服務
+10. 如果對話中還沒問過客戶稱呼，適時詢問「方便怎麼稱呼您？」
+11. 不要用 Markdown 格式（不要用 ** 或 # 等標記）
+
+## 對話歷史
+${recentHistory}
+
+## 客戶最新訊息
+${customerMsg}
+
+請直接回覆客戶的訊息（不要加前綴、不要加引號）：`;
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: { temperature: 0.7, maxOutputTokens: 300 }
+    })
+  });
+
+  if (!response.ok) throw new Error('API error');
+  const data = await response.json();
+  return data.candidates?.[0]?.content?.parts?.[0]?.text || '抱歉，請稍後再試。';
+}
+
+// ===== 工具函數 =====
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+function showToast(msg) {
+  const toast = document.getElementById('toast');
+  toast.textContent = msg; toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 2500);
+}
+function toggleSidebar() {
+  document.getElementById('sidebarContent').classList.toggle('collapsed');
+}
+</script>
+</body>
+</html>
